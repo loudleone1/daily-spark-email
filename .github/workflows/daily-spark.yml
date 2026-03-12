@@ -23,11 +23,18 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5' }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          SMTP_STARTTLS: ${{ vars.SMTP_STARTTLS || 'true' }}
+          SMTP_TIMEOUT_SECONDS: ${{ vars.SMTP_TIMEOUT_SECONDS || '60' }}
           TARGET_HOUR_LOCAL: ${{ vars.TARGET_HOUR_LOCAL || '8' }}
           TIMEZONE: ${{ vars.TIMEZONE || 'America/New_York' }}
           SPARK_EXTRA_CONTEXT: ${{ vars.SPARK_EXTRA_CONTEXT }}
+          HTTP_TIMEOUT_SECONDS: ${{ vars.HTTP_TIMEOUT_SECONDS || '120' }}
+          HTTP_MAX_ATTEMPTS: ${{ vars.HTTP_MAX_ATTEMPTS || '3' }}
           FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         run: python scripts/daily_spark.py

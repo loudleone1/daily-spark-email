@@ -4,16 +4,17 @@ import html
 import json
 import os
 import socket
+import smtplib
 import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime
+from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 
 
 OPENAI_API_URL = "https://api.openai.com/v1/responses"
-RESEND_API_URL = "https://api.resend.com/emails"
 
 
 def require_env(name: str) -> str:
@@ -161,27 +162,31 @@ def markdownish_to_html(content: str) -> str:
 
 
 def send_email(content: str) -> dict:
-    api_key = require_env("RESEND_API_KEY")
+    smtp_host = require_env("SMTP_HOST")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_username = require_env("SMTP_USERNAME")
+    smtp_password = require_env("SMTP_PASSWORD")
     from_email = require_env("FROM_EMAIL")
     to_email = require_env("TO_EMAIL")
     timezone_name = os.environ.get("TIMEZONE", "America/New_York")
     now = datetime.now(ZoneInfo(timezone_name))
     subject = f"Wild-Ideas Daily Spark | {now.strftime('%b %-d, %Y')}"
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = from_email
+    message["To"] = to_email
+    message.set_content(content)
+    message.add_alternative(markdownish_to_html(content), subtype="html")
 
-    payload = {
-        "from": from_email,
-        "to": [to_email],
-        "subject": subject,
-        "text": content,
-        "html": markdownish_to_html(content),
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "Idempotency-Key": f"wild-ideas-daily-spark-{now.strftime('%Y-%m-%d')}",
-        "User-Agent": "daily-spark-email/1.0",
-    }
-    return post_json(RESEND_API_URL, payload, headers)
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=int(os.environ.get("SMTP_TIMEOUT_SECONDS", "60"))) as server:
+        server.ehlo()
+        if os.environ.get("SMTP_STARTTLS", "true").lower() in {"1", "true", "yes", "on"}:
+            server.starttls()
+            server.ehlo()
+        server.login(smtp_username, smtp_password)
+        server.send_message(message)
+
+    return {"id": f"smtp-{now.strftime('%Y%m%d')}"}
 
 
 def main() -> int:

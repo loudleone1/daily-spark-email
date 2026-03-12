@@ -105,11 +105,14 @@ class DailySparkTests(unittest.TestCase):
 
         self.assertEqual(text, "## Wild Spark\nTry something improbable today.")
 
-    def test_send_email_calls_resend_with_subject_and_html(self):
+    def test_send_email_uses_smtp_with_subject_and_html(self):
         with patch.dict(
             os.environ,
             {
-                "RESEND_API_KEY": "resend-key",
+                "SMTP_HOST": "smtp.example.com",
+                "SMTP_PORT": "587",
+                "SMTP_USERNAME": "lou@jessicamarks.com",
+                "SMTP_PASSWORD": "smtp-password",
                 "FROM_EMAIL": "spark@example.com",
                 "TO_EMAIL": "me@example.com",
                 "TIMEZONE": "America/New_York",
@@ -117,19 +120,25 @@ class DailySparkTests(unittest.TestCase):
             clear=False,
         ):
             with patch.object(daily_spark, "datetime", FixedDateTime):
-                with patch.object(daily_spark, "post_json", return_value={"id": "email_123"}) as mock_post:
+                with patch("scripts.daily_spark.smtplib.SMTP") as mock_smtp:
                     result = daily_spark.send_email("# Wild Spark\nHello")
 
-        self.assertEqual(result["id"], "email_123")
-        args = mock_post.call_args[0]
-        self.assertEqual(args[0], daily_spark.RESEND_API_URL)
-        self.assertEqual(args[1]["subject"], "Wild-Ideas Daily Spark | Mar 12, 2026")
-        self.assertEqual(args[1]["from"], "spark@example.com")
-        self.assertEqual(args[1]["to"], ["me@example.com"])
-        self.assertIn("<h1>Wild Spark</h1>", args[1]["html"])
-        self.assertEqual(args[2]["Authorization"], "Bearer resend-key")
-        self.assertEqual(args[2]["Idempotency-Key"], "wild-ideas-daily-spark-2026-03-12")
-        self.assertEqual(args[2]["User-Agent"], "daily-spark-email/1.0")
+        self.assertEqual(result["id"], "smtp-20260312")
+        mock_smtp.assert_called_once_with("smtp.example.com", 587, timeout=60)
+        server = mock_smtp.return_value.__enter__.return_value
+        self.assertEqual(server.ehlo.call_count, 2)
+        server.starttls.assert_called_once()
+        server.login.assert_called_once_with("lou@jessicamarks.com", "smtp-password")
+        server.send_message.assert_called_once()
+
+        message = server.send_message.call_args[0][0]
+        self.assertEqual(message["Subject"], "Wild-Ideas Daily Spark | Mar 12, 2026")
+        self.assertEqual(message["From"], "spark@example.com")
+        self.assertEqual(message["To"], "me@example.com")
+        payloads = message.get_payload()
+        self.assertEqual(len(payloads), 2)
+        self.assertIn("Wild Spark", payloads[0].get_payload())
+        self.assertIn("<h1>Wild Spark</h1>", payloads[1].get_payload())
 
     def test_main_skips_when_not_target_hour(self):
         with patch.dict(os.environ, {"TIMEZONE": "America/New_York", "TARGET_HOUR_LOCAL": "9"}, clear=False):

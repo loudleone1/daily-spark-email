@@ -7,19 +7,28 @@ This repo sends a daily "Wild-Ideas Daily Spark" email from GitHub Actions, so i
 - Runs every hour in GitHub Actions.
 - Checks whether it is your configured local send hour.
 - Generates a fresh daily spark email with OpenAI.
-- Sends the email through Resend.
-- Uses a daily idempotency key to avoid duplicate sends for the same day.
+- Sends the email through your SMTP provider.
 
 ## GitHub setup
 
 Add these repository secrets:
 
 - `OPENAI_API_KEY`
-- `RESEND_API_KEY`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
 - `FROM_EMAIL`
 - `TO_EMAIL`
 
-`FROM_EMAIL` must be a sender address allowed by your Resend account and verified domain setup.
+Example SMTP setup for your domain mailbox:
+
+- `SMTP_HOST` your provider's SMTP server
+- `SMTP_PORT` usually `587`
+- `SMTP_USERNAME` usually `lou@jessicamarks.com`
+- `SMTP_PASSWORD` your mailbox password or app password
+- `FROM_EMAIL` `lou@jessicamarks.com`
+- `TO_EMAIL` wherever you want to receive the email
 
 Add these repository variables if you want to override defaults:
 
@@ -27,6 +36,10 @@ Add these repository variables if you want to override defaults:
 - `TARGET_HOUR_LOCAL` default: `8`
 - `OPENAI_MODEL` default: `gpt-5`
 - `SPARK_EXTRA_CONTEXT` optional extra steering for the prompt
+- `SMTP_STARTTLS` default: `true`
+- `SMTP_TIMEOUT_SECONDS` default: `60`
+- `HTTP_TIMEOUT_SECONDS` default: `120`
+- `HTTP_MAX_ATTEMPTS` default: `3`
 
 ## Enable it
 
@@ -38,4 +51,4 @@ Add these repository variables if you want to override defaults:
 ## Notes
 
 - GitHub scheduled workflows can run a few minutes late. This setup handles that by checking the local hour instead of relying on a single UTC cron time.
-- Resend requires a verified sending domain or an allowed test sender, depending on your plan and setup.
+- Your SMTP provider must allow authenticated sending from `FROM_EMAIL`.
