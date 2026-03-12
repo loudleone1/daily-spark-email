@@ -1,0 +1,32 @@
+name: Daily Spark Email
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Send daily spark email
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          TARGET_HOUR_LOCAL: ${{ vars.TARGET_HOUR_LOCAL || '8' }}
+          TIMEZONE: ${{ vars.TIMEZONE || 'America/New_York' }}
+          SPARK_EXTRA_CONTEXT: ${{ vars.SPARK_EXTRA_CONTEXT }}
+        run: python scripts/daily_spark.py
