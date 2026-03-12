@@ -88,6 +88,26 @@ class DailySparkTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("Skipping send", output.getvalue())
 
+    def test_main_force_send_bypasses_hour_check(self):
+        with patch.dict(
+            os.environ,
+            {
+                "TIMEZONE": "America/New_York",
+                "TARGET_HOUR_LOCAL": "9",
+                "FORCE_SEND": "true",
+            },
+            clear=False,
+        ):
+            with patch.object(daily_spark, "datetime", FixedDateTime):
+                with patch.object(daily_spark, "generate_email", return_value="# Wild Spark\nHello"):
+                    with patch.object(daily_spark, "send_email", return_value={"id": "email_456"}):
+                        output = io.StringIO()
+                        with redirect_stdout(output):
+                            exit_code = daily_spark.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Sent daily spark email: email_456", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

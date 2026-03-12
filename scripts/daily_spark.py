@@ -154,8 +154,9 @@ def send_email(content: str) -> dict:
 
 
 def main() -> int:
+    force_send = os.environ.get("FORCE_SEND", "").lower() in {"1", "true", "yes", "on"}
     send_now, now = should_send_now()
-    if not send_now:
+    if not send_now and not force_send:
         print(
             f"Skipping send. Local time in {os.environ.get('TIMEZONE', 'America/New_York')} is "
             f"{now.strftime('%Y-%m-%d %H:%M')}."

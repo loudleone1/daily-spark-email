@@ -29,4 +29,5 @@ jobs:
           TARGET_HOUR_LOCAL: ${{ vars.TARGET_HOUR_LOCAL || '8' }}
           TIMEZONE: ${{ vars.TIMEZONE || 'America/New_York' }}
           SPARK_EXTRA_CONTEXT: ${{ vars.SPARK_EXTRA_CONTEXT }}
+          FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         run: python scripts/daily_spark.py
