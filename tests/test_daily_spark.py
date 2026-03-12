@@ -53,6 +53,23 @@ class DailySparkTests(unittest.TestCase):
         self.assertIn("Write a daily email called", args[1]["input"])
         self.assertEqual(args[2]["Authorization"], "Bearer test-key")
 
+    def test_extract_response_text_falls_back_to_output_content(self):
+        response = {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {"type": "output_text", "text": "## Wild Spark"},
+                        {"type": "output_text", "text": "Try something improbable today."},
+                    ],
+                }
+            ]
+        }
+
+        text = daily_spark.extract_response_text(response)
+
+        self.assertEqual(text, "## Wild Spark\nTry something improbable today.")
+
     def test_send_email_calls_resend_with_subject_and_html(self):
         with patch.dict(
             os.environ,

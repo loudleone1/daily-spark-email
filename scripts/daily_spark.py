@@ -36,6 +36,22 @@ def post_json(url: str, payload: dict, headers: dict) -> dict:
         raise RuntimeError(f"HTTP {exc.code} from {url}: {body}") from exc
 
 
+def extract_response_text(response: dict) -> str:
+    text = response.get("output_text", "").strip()
+    if text:
+        return text
+
+    fragments: list[str] = []
+    for item in response.get("output", []):
+        for content in item.get("content", []):
+            if content.get("type") == "output_text":
+                value = content.get("text", "")
+                if value:
+                    fragments.append(value)
+
+    return "\n".join(fragment for fragment in fragments if fragment).strip()
+
+
 def should_send_now() -> tuple[bool, datetime]:
     timezone_name = os.environ.get("TIMEZONE", "America/New_York")
     target_hour = int(os.environ.get("TARGET_HOUR_LOCAL", "8"))
@@ -98,7 +114,7 @@ def generate_email() -> str:
         "Content-Type": "application/json",
     }
     response = post_json(OPENAI_API_URL, payload, headers)
-    text = response.get("output_text", "").strip()
+    text = extract_response_text(response)
     if not text:
         raise RuntimeError("OpenAI response did not include output_text.")
     return text
