@@ -165,6 +165,7 @@ def send_email(content: str) -> dict:
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "Idempotency-Key": f"wild-ideas-daily-spark-{now.strftime('%Y-%m-%d')}",
+        "User-Agent": "daily-spark-email/1.0",
     }
     return post_json(RESEND_API_URL, payload, headers)
 

@@ -94,6 +94,7 @@ class DailySparkTests(unittest.TestCase):
         self.assertIn("<h1>Wild Spark</h1>", args[1]["html"])
         self.assertEqual(args[2]["Authorization"], "Bearer resend-key")
         self.assertEqual(args[2]["Idempotency-Key"], "wild-ideas-daily-spark-2026-03-12")
+        self.assertEqual(args[2]["User-Agent"], "daily-spark-email/1.0")
 
     def test_main_skips_when_not_target_hour(self):
         with patch.dict(os.environ, {"TIMEZONE": "America/New_York", "TARGET_HOUR_LOCAL": "9"}, clear=False):
