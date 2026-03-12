@@ -1,5 +1,6 @@
 import io
 import os
+import socket
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
@@ -16,6 +17,40 @@ class FixedDateTime:
 
 
 class DailySparkTests(unittest.TestCase):
+    def test_post_json_retries_after_timeout_and_succeeds(self):
+        class FakeResponse:
+            def __init__(self, body: str):
+                self.body = body
+
+            def read(self):
+                return self.body.encode("utf-8")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        side_effects = [TimeoutError("slow"), FakeResponse('{"ok": true}')]
+
+        with patch.dict(os.environ, {"HTTP_MAX_ATTEMPTS": "3", "HTTP_TIMEOUT_SECONDS": "1"}, clear=False):
+            with patch("scripts.daily_spark.urllib.request.urlopen", side_effect=side_effects) as mock_urlopen:
+                with patch("scripts.daily_spark.time.sleep") as mock_sleep:
+                    response = daily_spark.post_json("https://example.com", {"a": 1}, {"X-Test": "1"})
+
+        self.assertEqual(response, {"ok": True})
+        self.assertEqual(mock_urlopen.call_count, 2)
+        mock_sleep.assert_called_once_with(2)
+
+    def test_post_json_fails_after_max_attempts(self):
+        with patch.dict(os.environ, {"HTTP_MAX_ATTEMPTS": "2", "HTTP_TIMEOUT_SECONDS": "1"}, clear=False):
+            with patch("scripts.daily_spark.urllib.request.urlopen", side_effect=socket.timeout("timed out")):
+                with patch("scripts.daily_spark.time.sleep"):
+                    with self.assertRaises(RuntimeError) as error:
+                        daily_spark.post_json("https://example.com", {"a": 1}, {"X-Test": "1"})
+
+        self.assertIn("failed after 2 attempts", str(error.exception))
+
     def test_build_prompt_includes_sections_and_context(self):
         with patch.dict(os.environ, {"SPARK_EXTRA_CONTEXT": "Lean toward unexpected field trips."}, clear=False):
             prompt = daily_spark.build_prompt("Thursday, March 12, 2026")

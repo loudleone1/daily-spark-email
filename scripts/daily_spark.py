@@ -3,7 +3,9 @@
 import html
 import json
 import os
+import socket
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -22,18 +24,30 @@ def require_env(name: str) -> str:
 
 
 def post_json(url: str, payload: dict, headers: dict) -> dict:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code} from {url}: {body}") from exc
+    timeout_seconds = int(os.environ.get("HTTP_TIMEOUT_SECONDS", "120"))
+    max_attempts = int(os.environ.get("HTTP_MAX_ATTEMPTS", "3"))
+
+    for attempt in range(1, max_attempts + 1):
+        request = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"HTTP {exc.code} from {url}: {body}") from exc
+        except (TimeoutError, socket.timeout, urllib.error.URLError) as exc:
+            if attempt == max_attempts:
+                raise RuntimeError(
+                    f"Request to {url} failed after {max_attempts} attempts: {exc}"
+                ) from exc
+            time.sleep(attempt * 2)
+
+    raise RuntimeError(f"Request to {url} failed without a response.")
 
 
 def extract_response_text(response: dict) -> str:
