@@ -3,6 +3,7 @@
 import html
 import json
 import os
+from pathlib import Path
 import socket
 import smtplib
 import sys
@@ -71,7 +72,22 @@ def should_send_now() -> tuple[bool, datetime]:
     timezone_name = os.environ.get("TIMEZONE", "America/New_York")
     target_hour = int(os.environ.get("TARGET_HOUR_LOCAL", "8"))
     now = datetime.now(ZoneInfo(timezone_name))
-    return now.hour == target_hour, now
+    return now.hour >= target_hour, now
+
+
+def marker_path_for_now(now: datetime) -> Path:
+    base_dir = Path(os.environ.get("SENT_MARKER_DIR", ".daily-spark-state"))
+    return base_dir / f"sent-{now.strftime('%Y-%m-%d')}.marker"
+
+
+def was_already_sent_today(now: datetime) -> bool:
+    return marker_path_for_now(now).exists()
+
+
+def mark_sent_today(now: datetime) -> None:
+    marker_path = marker_path_for_now(now)
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(now.isoformat(), encoding="utf-8")
 
 
 def build_prompt(today_local: str) -> str:
@@ -192,6 +208,13 @@ def send_email(content: str) -> dict:
 def main() -> int:
     force_send = os.environ.get("FORCE_SEND", "").lower() in {"1", "true", "yes", "on"}
     send_now, now = should_send_now()
+    if was_already_sent_today(now) and not force_send:
+        print(
+            f"Skipping send. Daily spark already sent for {now.strftime('%Y-%m-%d')} in "
+            f"{os.environ.get('TIMEZONE', 'America/New_York')}."
+        )
+        return 0
+
     if not send_now and not force_send:
         print(
             f"Skipping send. Local time in {os.environ.get('TIMEZONE', 'America/New_York')} is "
@@ -201,6 +224,7 @@ def main() -> int:
 
     content = generate_email()
     result = send_email(content)
+    mark_sent_today(now)
     print(f"Sent daily spark email: {result.get('id', 'unknown id')}")
     return 0
 

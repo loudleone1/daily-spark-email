@@ -19,6 +19,19 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Compute local marker date
+        id: marker-date
+        env:
+          TIMEZONE: ${{ vars.TIMEZONE || 'America/New_York' }}
+        run: echo "date=$(TZ="$TIMEZONE" date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore daily sent marker
+        id: restore-marker
+        uses: actions/cache/restore@v4
+        with:
+          path: .daily-spark-state
+          key: daily-spark-sent-${{ steps.marker-date.outputs.date }}
+
       - name: Send daily spark email
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -37,4 +50,12 @@ jobs:
           HTTP_TIMEOUT_SECONDS: ${{ vars.HTTP_TIMEOUT_SECONDS || '120' }}
           HTTP_MAX_ATTEMPTS: ${{ vars.HTTP_MAX_ATTEMPTS || '3' }}
           FORCE_SEND: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          SENT_MARKER_DIR: .daily-spark-state
         run: python scripts/daily_spark.py
+
+      - name: Save daily sent marker
+        if: success() && steps.restore-marker.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .daily-spark-state
+          key: daily-spark-sent-${{ steps.marker-date.outputs.date }}

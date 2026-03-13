@@ -1,6 +1,7 @@
 import io
 import os
 import socket
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
@@ -14,6 +15,22 @@ class FixedDateTime:
         from datetime import datetime
 
         return datetime(2026, 3, 12, 8, 15, tzinfo=tz)
+
+
+class LateDateTime:
+    @classmethod
+    def now(cls, tz=None):
+        from datetime import datetime
+
+        return datetime(2026, 3, 13, 11, 54, tzinfo=tz)
+
+
+class EarlyDateTime:
+    @classmethod
+    def now(cls, tz=None):
+        from datetime import datetime
+
+        return datetime(2026, 3, 13, 7, 15, tzinfo=tz)
 
 
 class DailySparkTests(unittest.TestCase):
@@ -141,34 +158,97 @@ class DailySparkTests(unittest.TestCase):
         self.assertIn("<h1>Wild Spark</h1>", payloads[1].get_payload())
 
     def test_main_skips_when_not_target_hour(self):
-        with patch.dict(os.environ, {"TIMEZONE": "America/New_York", "TARGET_HOUR_LOCAL": "9"}, clear=False):
-            with patch.object(daily_spark, "datetime", FixedDateTime):
-                output = io.StringIO()
-                with redirect_stdout(output):
-                    exit_code = daily_spark.main()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                os.environ,
+                {"TIMEZONE": "America/New_York", "TARGET_HOUR_LOCAL": "8", "SENT_MARKER_DIR": temp_dir},
+                clear=False,
+            ):
+                with patch.object(daily_spark, "datetime", EarlyDateTime):
+                    output = io.StringIO()
+                    with redirect_stdout(output):
+                        exit_code = daily_spark.main()
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Skipping send", output.getvalue())
 
+    def test_main_sends_when_run_late_after_target_hour(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                os.environ,
+                {"TIMEZONE": "America/New_York", "TARGET_HOUR_LOCAL": "8", "SENT_MARKER_DIR": temp_dir},
+                clear=False,
+            ):
+                with patch.object(daily_spark, "datetime", LateDateTime):
+                    with patch.object(daily_spark, "generate_email", return_value="# Wild Spark\nHello"):
+                        with patch.object(daily_spark, "send_email", return_value={"id": "email_late"}):
+                            output = io.StringIO()
+                            with redirect_stdout(output):
+                                exit_code = daily_spark.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Sent daily spark email: email_late", output.getvalue())
+
+    def test_main_skips_if_already_sent_today(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                os.environ,
+                {"TIMEZONE": "America/New_York", "TARGET_HOUR_LOCAL": "8", "SENT_MARKER_DIR": temp_dir},
+                clear=False,
+            ):
+                with patch.object(daily_spark, "datetime", LateDateTime):
+                    daily_spark.mark_sent_today(daily_spark.datetime.now())
+                    output = io.StringIO()
+                    with redirect_stdout(output):
+                        exit_code = daily_spark.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("already sent", output.getvalue())
+
     def test_main_force_send_bypasses_hour_check(self):
-        with patch.dict(
-            os.environ,
-            {
-                "TIMEZONE": "America/New_York",
-                "TARGET_HOUR_LOCAL": "9",
-                "FORCE_SEND": "true",
-            },
-            clear=False,
-        ):
-            with patch.object(daily_spark, "datetime", FixedDateTime):
-                with patch.object(daily_spark, "generate_email", return_value="# Wild Spark\nHello"):
-                    with patch.object(daily_spark, "send_email", return_value={"id": "email_456"}):
-                        output = io.StringIO()
-                        with redirect_stdout(output):
-                            exit_code = daily_spark.main()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "TIMEZONE": "America/New_York",
+                    "TARGET_HOUR_LOCAL": "9",
+                    "FORCE_SEND": "true",
+                    "SENT_MARKER_DIR": temp_dir,
+                },
+                clear=False,
+            ):
+                with patch.object(daily_spark, "datetime", FixedDateTime):
+                    with patch.object(daily_spark, "generate_email", return_value="# Wild Spark\nHello"):
+                        with patch.object(daily_spark, "send_email", return_value={"id": "email_456"}):
+                            output = io.StringIO()
+                            with redirect_stdout(output):
+                                exit_code = daily_spark.main()
 
         self.assertEqual(exit_code, 0)
         self.assertIn("Sent daily spark email: email_456", output.getvalue())
+
+    def test_main_force_send_bypasses_already_sent_marker(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "TIMEZONE": "America/New_York",
+                    "TARGET_HOUR_LOCAL": "8",
+                    "FORCE_SEND": "true",
+                    "SENT_MARKER_DIR": temp_dir,
+                },
+                clear=False,
+            ):
+                with patch.object(daily_spark, "datetime", LateDateTime):
+                    daily_spark.mark_sent_today(daily_spark.datetime.now())
+                    with patch.object(daily_spark, "generate_email", return_value="# Wild Spark\nHello"):
+                        with patch.object(daily_spark, "send_email", return_value={"id": "email_789"}):
+                            output = io.StringIO()
+                            with redirect_stdout(output):
+                                exit_code = daily_spark.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("Sent daily spark email: email_789", output.getvalue())
 
 
 if __name__ == "__main__":

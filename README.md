@@ -5,7 +5,7 @@ This repo sends a daily "Wild-Ideas Daily Spark" email from GitHub Actions, so i
 ## What it does
 
 - Runs every hour in GitHub Actions.
-- Checks whether it is your configured local send hour.
+- Sends once per day after your configured local send hour, even if GitHub's scheduled run is delayed.
 - Generates a fresh daily spark email with OpenAI.
 - Sends the email through your SMTP provider.
 
@@ -51,4 +51,5 @@ Add these repository variables if you want to override defaults:
 ## Notes
 
 - GitHub scheduled workflows can run a few minutes late. This setup handles that by checking the local hour instead of relying on a single UTC cron time.
+- A daily marker is cached in GitHub Actions so delayed hourly runs still send once, without duplicating later in the day.
 - Your SMTP provider must allow authenticated sending from `FROM_EMAIL`.
