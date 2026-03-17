@@ -78,6 +78,9 @@ class DailySparkTests(unittest.TestCase):
         self.assertIn("Bigger Bets", prompt)
         self.assertIn("Question to Chase", prompt)
         self.assertIn("Lean toward unexpected field trips.", prompt)
+        self.assertIn("Push for novelty and range", prompt)
+        self.assertIn("At least 2 ideas should feel unusual", prompt)
+        self.assertIn("Vary the types of ideas across domains", prompt)
 
     def test_markdownish_to_html_converts_headings_and_bullets(self):
         content = "# Wild Spark\n\n## Ideas\n- Meet a stranger at the horse barn\n1. Book a train to somewhere random"

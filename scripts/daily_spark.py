@@ -127,6 +127,14 @@ Requirements:
 - The Question to Chase section must be a single strong question.
 - Keep total length between 350 and 600 words.
 - Avoid filler, corporate tone, and generic self-help language.
+- Push for novelty and range. Do not make today's note feel like a lightly reworded version of a typical self-improvement email.
+- Vary the types of ideas across domains like travel, social experiments, local field trips, animals, farm life, creative projects, micro-businesses, hidden subcultures, physical challenges, classes, volunteering, strategy games, invention sprints, performance, craftsmanship, unusual jobs, nature, hospitality, events, and immersive learning.
+- Mix time horizons. Include some ideas for today, some for this week, and some that could become a larger life chapter.
+- Favor specific, real-world experiences over abstract advice.
+- At least 2 ideas should feel unusual or delightfully unexpected.
+- Avoid repeating the same categories, framing, or examples too often. If an idea feels familiar, mutate it into a more original version.
+- Look for combinations that create energy, such as adventure plus animals, strategy plus community, invention plus travel, or farm life plus creative experimentation.
+- Occasionally include ideas that are a little eccentric, story-worthy, or socially bold, as long as they are still plausible.
 """
 
 
